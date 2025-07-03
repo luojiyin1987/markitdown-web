@@ -141,16 +141,24 @@ async def download_file(filename: str):
     """
     下载转换后的Markdown文件
     """
+    import urllib.parse
+    
     file_path = os.path.join("outputs", filename)
     
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="文件不存在")
     
+    # 对文件名进行URL编码以处理中文字符
+    encoded_filename = urllib.parse.quote(filename, safe='')
+    
+    # 使用RFC5987标准格式，同时提供ASCII fallback
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}; filename=\"{filename.encode('ascii', 'ignore').decode('ascii')}\""
+    
     return FileResponse(
         path=file_path,
         filename=filename,
         media_type="text/markdown",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": content_disposition}
     )
 
 @app.get("/preview/{filename}")
