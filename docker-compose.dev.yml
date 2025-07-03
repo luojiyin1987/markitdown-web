@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  markitdown-web-dev:
+    build: 
+      context: .
+      target: development
+    container_name: markitdown-web-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=true
+      - RELOAD=true
+    volumes:
+      # 挂载源代码，支持热重载
+      - .:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+      # 持久化文件目录
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./logs:/app/logs
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    networks:
+      - markitdown-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # 开发环境数据库（可选）
+  postgres-dev:
+    image: postgres:13-alpine
+    container_name: markitdown-postgres-dev
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=markitdown_dev
+      - POSTGRES_USER=devuser
+      - POSTGRES_PASSWORD=devpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    networks:
+      - markitdown-dev-network
+    profiles:
+      - "with-db"
+
+  # 开发环境 Redis
+  redis-dev:
+    image: redis:alpine
+    container_name: markitdown-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - markitdown-dev-network
+    profiles:
+      - "with-redis"
+
+  # 监控工具
+  mailhog:
+    image: mailhog/mailhog
+    container_name: markitdown-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - markitdown-dev-network
+    profiles:
+      - "with-tools"
+
+volumes:
+  postgres-dev-data:
+    driver: local
+  redis-dev-data:
+    driver: local
+
+networks:
+  markitdown-dev-network:
+    driver: bridge 
